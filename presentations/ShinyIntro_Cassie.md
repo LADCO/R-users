@@ -1,11 +1,5 @@
-# Shiny Intro
-Cassie  
-2015  
-
-
 Using Shiny to Vizualize and Share Your Data
 =============================================================
-
 
 Duluth R Users Group
 --------------------------------------
@@ -14,7 +8,6 @@ April 8, 2015 <br>
 <a href="mailto:cassie.mcmahon@state.mn.us"> Cassie McMahon</a>, Minnestoa Pollution Control Agency
 
 <br>
-
 Modified from <a href="shiny.rstudio.com/tutorial/"> Shiny by RStudio Tutorial </a> 
 
 What is Shiny?
