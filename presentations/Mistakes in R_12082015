@@ -1,0 +1,331 @@
+---
+title: "My All-Too-Common Mistakes in R"
+author: "KMEllickson"
+date: "December 8, 2015"
+output: 
+  ioslides_presentation:
+    keep_md: yes
+    theme: readable
+    toc: yes
+    widescreen: yes
+  beamer_presentation: default
+---
+
+R is My First Programming Language
+---
+- I have made and still make lots of mistakes.
+- Some of them are funny.
+- Some, not so funny and very frustrating
+
+But, look, I am doing this entire presentation in R Markdown
+---
+- [**http://rpubs.com/kmellickson/132883**](http://rpubs.com/kmellickson/132883)
+- This means anyone can do this.
+- I promise you will be happy you spent the time learning.
+
+Here is one reason that my time learning R was worth it
+---
+##I am a lead on a Community Air Toxics grant
+##We get our data bit by bit every month
+##We want to look at it as we get it.
+
+In order to look at our data, we need to do the following data processing
+---
+- Collapse redundant values with multiple qualifiers
+- Calculate sampling rates to calibrate passive samples
+- Convert passive mass to air concentrations
+- Sum gas+particle results
+- Add a censored/non-censored data column
+- Format dates
+- Merge site information
+- Align passive sampling dates to first of the month
+
+I wrote a script that does all of this.
+---
+- pulls a dataframe from the database, processes it as above, and saves a csv
+
+- This means
+  - I can update our data for each submittal and it takes seconds
+  - All of the processing steps are documented so I don't need to re-learn what I did in an Excel spreadsheet.
+
+But, let's get to the hilarious mistakes I have made along the way
+---
+
+
+Filtering and selecting from dataframes
+---
+- Selecting without a "$"
+```{r, echo=TRUE, eval=FALSE, warning=TRUE}
+library(dplyr)
+data <- read.csv("X:/Programs/Air_Quality_Programs/Air Focus Areas/EPA Community Scale Monitoring of PAHs Project/Data Analysis/Data Processing/allPAHconcentrations.csv")
+names(data)
+data_MilleLacs <- data[MPCA_Site_ID == "3051", ]
+
+#> data_MilleLacs <- data[MPCA_Site_ID == "3051", ]
+#Error in match(x, table, nomatch = 0L) : object 'MPCA_Site_ID' not found
+```
+- The code above is looking for a character 3051 in a data frame that doesn't exist
+- You want code that looks for that character within a vector
+
+Below, I subset by the Site ID for Mille Lacs, MN
+---
+```{r, echo=TRUE}
+data <- read.csv("X:/Programs/Air_Quality_Programs/Air Focus Areas/EPA Community Scale Monitoring of PAHs Project/Data Analysis/Data Processing/allPAHconcentrations.csv", stringsAsFactors = FALSE)
+data_MilleLacs <- data[data$MPCA_Site_ID == "3051", ]
+head(data_MilleLacs, n=3)
+```
+
+When subsetting on multiple values, use `%in%` not `==`
+---
+- The code below is testing whether the Year equals a list
+- It is not answering the question is this year in this vector
+```{r, echo=TRUE}
+data <- read.csv("X:/Programs/Air_Quality_Programs/Air Focus Areas/EPA Community Scale Monitoring of PAHs Project/Data Analysis/Data Processing/allPAHconcentrations.csv", stringsAsFactors = FALSE)
+
+data_year <- data[data$Year == c(2012, 2013, 2014), ]
+head(data_year, n=3)
+```
+
+In the code below I use `%in%`
+---
+- The code below is correctly testing whether each year in the list is in the vector Year
+
+```{r, echo=TRUE}
+data <- read.csv("X:/Programs/Air_Quality_Programs/Air Focus Areas/EPA Community Scale Monitoring of PAHs Project/Data Analysis/Data Processing/allPAHconcentrations.csv", stringsAsFactors = FALSE)
+
+data_year <- data[data$Year %in% c(2012, 2013, 2014), ]
+head(data_year, n=3)
+```
+
+This is another of my favorites: Capitalization matters. 
+---
+- SAS is not case sensitive 
+- R is Case Sensitive
+- People who learn SAS first struggle with this
+- Make your data names easy
+- I am trying to make simpler names
+  - all lower or uppercase
+  - generic names
+```{r, echo=TRUE, eval=FALSE, error=TRUE}
+data_MilleLacs <- data[data$MPCA_Site_ID %in% "3051", ]
+head(data_Millelacs, n=3L)
+
+#Error in head(data_Millelacs, n = 3L) : object 'data_Millelacs' not found
+```
+
+If you mean no, or not this, remember the exclamation point!
+---
+- Below I am pulling all of the Results that are NA
+- I am not doing what I intended, which is pull non-NULL values.
+```{r, echo=TRUE}
+data <- read.csv("X:/Programs/Air_Quality_Programs/Air Focus Areas/EPA Community Scale Monitoring of PAHs Project/Data Analysis/Data Processing/allPAHconcentrations.csv", stringsAsFactors = FALSE)
+data_isnotNA <- data[is.na(data$Result), ]
+head(data_isnotNA, n=3L)
+
+```
+
+Here is the correctely subset non-NA dataframe
+---
+```{r, echo=TRUE}
+data_isnotNA <- data[!is.na(data$Result), ]
+head(data_isnotNA, n=3)
+```
+
+When you use subset, remember 2 equal signs!
+---
+```{r, echo=TRUE}
+data_north <- subset(data, location_if_collocated="north")
+nrow(data)
+nrow(data_north)
+```
+
+Here is the correct version with double equal signs
+---
+- Notice how my original dataframe and the subset dataframe do not have equal observations.
+- This is something to remember to always check.
+```{r, echo=TRUE}
+data_north <- subset(data, location_if_collocated=="north")
+nrow(data)
+nrow(data_north)
+```
+
+Using read.csv and forgetting to include "stringsAsFactors=FALSE"
+---
+```{r, echo=TRUE}
+data <- read.csv("X:/Programs/Air_Quality_Programs/Air Focus Areas/EPA Community Scale Monitoring of PAHs Project/Data Analysis/Data Processing/allPAHconcentrations.csv")
+class(data$Season_StudyYear)
+data[data$location_if_collocated == "north", "location_if_collocated"] <- "northeast"
+head(data, n=3)
+
+```
+
+![stringFactors](stringFactors.png)
+
+
+Here I pull in the dataframe with stringsAsFactors=FALSE
+---
+- Now, the appropriate transformation is completed
+- If you use read_csv from the readr package, you do not have to assign class
+ - read_csv does some guessing at classes and can result in unneccessary warnings
+```{r, echo=TRUE}
+data <- read.csv("X:/Programs/Air_Quality_Programs/Air Focus Areas/EPA Community Scale Monitoring of PAHs Project/Data Analysis/Data Processing/allPAHconcentrations.csv", stringsAsFactors=FALSE)
+data[data$location_if_collocated == "north", "location_if_collocated"] <- "northeast"
+head(data, n=3)
+```
+- str(dataframe) is a great way to check if your data have been pulled correctly
+
+Making a chart for each parameter
+---
+-If you open a pdf device, and then run a plot function by parameter, A pdf document is created with each parameter on a separate page.
+```{r, echo=TRUE, eval=FALSE}
+
+closest<-read.csv("M:/KME Files/Model Monitor/2008 - Update_112014/Statistics/Data Tables and Processing/Measurements MNRiskS Results Closest Receptors.csv",header=TRUE, stringsAsFactors=F)
+closest=na.omit(closest)
+
+pdf("Single Pollutant Modeled vs. Observed Plots_Closest Receptors.pdf")
+
+splitspolls = function(x) {
+  closest= subset(closest, substance==x)
+  plot(closest$obs, closest$mod, type="p", xlab="observed ug/m3", ylab="modeled ug/m3", main = x)
+  abline(0,1)
+        }
+lapply(levels(as.factor(closest$substance)), function(x) splitspolls(x))
+
+dev.off()
+```
+
+The first time I did this, I opened the pdf device inside the function like this
+---
+
+
+```{r, echo=TRUE, eval=FALSE}
+closest<-read.csv("M:/KME Files/Model Monitor/2008 - Update_112014/Statistics/Data Tables and Processing/Measurements MNRiskS Results Closest Receptors.csv",header=TRUE, stringsAsFactors=F)
+closest=na.omit(closest)
+
+splitspolls = function(x) {
+  pdf("Single Pollutant Modeled vs. Observed Plots_Closest Receptors.pdf")
+  closest= subset(closest, substance==x)
+  plot(closest$obs, closest$mod, type="p", xlab="observed ug/m3", ylab="modeled ug/m3", main = x)
+  abline(0,1)
+        }
+lapply(levels(as.factor(closest$substance)), function(x) splitspolls(x))
+
+dev.off()
+```
+- This opens as many pdf devices as there parameters
+- So you must close many graphic devices
+
+Avoid opening graphic devices inside of functions or loops, unless you allow for it
+---
+-If you do open MANY graphic devices, remember this command.
+```{r, echo=TRUE, eval=FALSE}
+graphics.off()
+```
+
+Making charts for each parameter is useful
+---
+- Below I pull data, create groups of Sampler Types and Time Summaries
+- The "for loop"" makes a chart for each of those combinations, and names them by combination as well.
+```{r, echo=TRUE, warning=FALSE, eval=FALSE}
+library(RODBC)
+library(openair)
+db="X:/Programs/Air_Quality_Programs/Air Focus Areas/EPA Community Scale Monitoring of PAHs Project/Data Analysis/Model Monitor Comparison/Statistics/MNRiskS Measured Data Processing 2008.accdb"
+bigdb=odbcConnectAccess2007(db)
+buffers=sqlFetch(bigdb, "Monitor and Model Data for 1km Buffers", stringsAsFactors = FALSE)
+buffers=data.frame(buffers)
+
+Sampler_Types <- unique(buffers$Sampler_Type)
+summaries <- unique(buffers$summary)
+
+for(i in Sampler_Types) {
+  for(j in summaries) {
+ ##ScatterPlot All Data
+tiff(paste(i, j, "scatterplotloglog.tiff"), width=10, height=7, units="in", pointsize=12, res=300, type=c("cairo"))
+scatterPlot(filter(buffers, Sampler_Type == i, summary == j), x="obs", y="mod", method="scatter", group="substance", data.thresh=0,
+            type="default", mod.line=TRUE, linear=TRUE, log.x=TRUE, log.y=TRUE, xlab = paste(i, "_", "observed"), ylab="average modeled", 
+            main=paste(i, "Measured PAHs and ", j, " Modeled PAHs within a 1km Buffer"))
+      dev.off()   
+}
+}
+```
+
+Did anyone notice what I missed in that script?
+---
+- In the script in the previous slide I opened a connection to a database
+- Then I pulled a table from it
+- I didn't close the connection
+- This isn't necessary
+  - It is good practice to protect your database from unintended changes
+```{r, echo=TRUE, eval=FALSE}
+odbcClose(conn) # close the connection to the file
+```
+
+Naming Columns
+---
+- Avoid spaces and periods in column names
+- Don't start column name with a number, or an equation
+- If you save a column name of "Chromium Hexavalent" R puts a "." in the space
+- Then when you call that column you have to remember to write "Chromium.Hexavalent"
+- Avoid this by simplfying names or using underscores
+  + Or when importing files add `check.names=FALSE`
+
+Numbers pulled in with comma separation: ``100,000`
+---
+- To get around this one, you can pull in your table as follows:
+```{r, echo=TRUE, eval=FALSE}
+library(utils)
+alldata <- read.table("alldata.csv", dec=",", stringsAsFactors=F)
+
+##OR YOU CAN gsub()
+
+alldata <- read.csv("alldata.csv", stringsAsFactors=F)
+alldata$numbers <- as.numeric(gsub(",", "", alldata$numbers)
+```
+
+Asking Questions
+---
+- In learning R I have asked a lot of questions.
+- In the beginning, I would send someone the following:
+- Why doesn't this work?
+```{r, echo=TRUE, eval=FALSE}
+alldata <- unique(alldata)
+alldata=as.data.frame(alldata, stringsAsFactors=FALSE)
+names(alldata) <- str_replace_all(str_trim(names(alldata)), " ", "_")
+alldata <- group_by(alldata, MDH_Lab_ID_Code, Sampler_Type, MPCA_Site_ID, Result, Units, CAS, Start_Run_Date, Study_Location, passive_active, Qstd_Volume, Primary_Occurence_Code, location_if_collocated, Year, Season, Flags_Text, Study_Year, MDL, Analyte) %>% summarise(Qualifier=paste(Qualifiers, collapse=","))
+alldata$passive_active <- as.character(alldata$passive_active)
+passives<- filter(alldata, passive_active %in% "passive") 
+passivecalcs<- group_by(passives, CAS, Study_Location, Season) %>% summarise(passive_cal_mean=mean(Result, na.rm=T))
+gasactives<- filter(alldata, Sampler_Type %in% "PAHs Air, HiVol XAD")
+gasactives<- group_by(gasactives, CAS, Study_Location, Season) %>% summarise(gasactive_cal_mean=mean(Result, na.rm=T))
+allconcentrations <- mutate(allconcentrations, Unified_Date = ifelse(Sampler_Type %in% "Passive", FirstoftheMonth, Start_Run_Date))
+allconcentrations$FirstoftheMonth <- NULL
+allconcentrations$Unified_Date <- as.POSIXct(strptime(allconcentrations$Unified_Date, format="%Y-%m-%d"), tz="GMT")
+allconcentrations$Start_Run_Date <- as.POSIXct(strptime(allconcentrations$Start_Run_Date, format="%Y-%m-%d"), tz="GMT")
+```
+
+Well, that's not fair. Who knows what I meant?
+---
+
+Here is a list of things to do before asking R-related questions
+---
+  - Google it first
+  - Sometimes I am so frustrated I Google something along the lines of, "How do I split a dataframe by a factor variable in R"...and most of the times I get an answer in Stackoverflow or another R help information source
+    - Beware, stackoverflow answers can sometimes be very irritably written, do not let that make you give up on learning R
+  - I find the R-bloggers articles very helpful. Sometimes there is an entire article written about my exact question
+  - Try to narrow down the question to one or a few lines that aren't working
+  - Finally, sometimes you just need to turn R Studio off and turn it back on again.
+
+When asking a question send the following (Noone in the history of the world has ever done all of this)
+---
+- example data
+- R version: `Sys.info()`
+- Operating system (if you are asking outside of your agency or group)
+- reproducible code
+- troubleshooting that you have already done.
+
+Things I am working on right now in R
+---
+- Making my scripts more generic to avoid capitalization errors and spelling mistakes.
+- Doing more with less typing.
+- Getting better at writing functions.
+- Checking my progress along the way.
