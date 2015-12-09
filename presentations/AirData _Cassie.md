@@ -188,4 +188,126 @@ install.packages("openair")
 library(openair)
 ```
  
- 
+ ```r
+##Load Custom Functions
+round2 = function(x, n) {
+  posneg = sign(x)
+  z = abs(x)*10^n
+  z = z + 0.51
+  z = trunc(z)
+  z = z/10^n
+  z*posneg
+}
+
+trunc2=function(x,n){
+  posneg=sign(x)
+  z=abs(x)*10^n
+  z=trunc(z)
+  z=z/10^n
+  z*posneg
+}
+
+aqsid=function(state,county,site){
+  x=paste(sprintf("%02d",state),(sprintf("%03d",county)),(sprintf("%04d",site)),sep="-")
+  x
+}
+
+aqsidpoc=function(state,county,site,poc){
+  x=paste(sprintf("%02d",state),(sprintf("%03d",county)),(sprintf("%04d",site)),poc,sep="-")
+  x
+}
+
+##Run RAQDM
+library("raqdm")
+setAQDMuser("your_username","your_password",save=T)
+setAQDMdefaults(pc="CRITERIA",format="AQS")
+
+request=getAQDMdata(bdate="20140401",
+                    edate="20141031",
+                    state="27",
+                    param="44201",
+                    format="AQS")
+
+##Do not run until you receive email indicating file is ready
+MNO3=getAQDMrequest(request,stringAsFactors=FALSE)
+
+##Create custom variables
+
+#Do I neeed to include POCS in my site id?
+unique(MNO3$POC) #In this example only 1 POC - do not need POC in Site.Id
+
+MNO3$aqsid=aqsid(MNO3$State.Code,MNO3$County.Code,MNO3$Site.ID) #Create an AQSID field
+unique(MNO3$aqsid) #View each unique AQSID in the file
+
+#Check reported units and convert to PPB
+unique(MNO3$Unit) #In this example all data is reported in PPM (unit code 7)
+
+#I want to work with PPB, so I will create a new variable with the data stored as PPB
+MNO3$Result.PPB=ifelse(MNO3$Unit==7,MNO3$Sample.Value*1000,MNO3$Sample.Value) #If my file also had data in PPB, this would convert the results in PPM to PPB and Retain the PPB results
+
+#Create date fields for use in openair
+MNO3$date=as.POSIXct(paste(MNO3$Date,MNO3$Start.Time,sep=" "),format="%Y%m%d %H:%M",tz="GMT") #Format = the current format of the data
+MNO3$date[1]
+
+MNO3$shortdate=strftime(MNO3$date,format="%Y-%m-%d",tz="GMT") #When using strftime format= the format you would like to convert your data to
+MNO3$shortdate[1]
+
+#Use the help function to learn more about functions. The strftime help file includes a library of codes for formatting date variables
+help(strftime)
+
+
+
+###Tidy up data frame to variables I want to use
+
+#Trim MNO3 frame
+MNO3_2=subset(MNO3,select=c("aqsid","Result.PPB","date"))
+
+#Rename variables
+names(MNO3_2)=c("site","ozone","date")
+
+#Done with the original?
+rm(MNO3)
+
+####Load openair
+install.packages("openair")
+library("openair")
+
+##Quickview of our MNO3
+summaryPlot(MNO3_2,pollutant="ozone",period="months")
+help(summaryPlot)
+
+#Subset the data to include only one monitoring site
+blaine=subset(MNO3_2,MNO3_2$site=="27-003-1002")
+summaryPlot(blaine,pollutant="ozone",period="months",main="Blaine 2014")
+
+##Calendar View
+
+#View daily results at all sites based on hourly data
+calendarPlot(MNO3_2,pollutant="ozone",year=2014,month=4:10,statistic="mean")
+help(calendarPlot)
+
+#View daily results at Blaine based on hourly data
+calendarPlot(blaine,pollutant="ozone",year=2014,month=4:10,statistic="mean",
+             breaks=c(0,20,40,60,65,70,75,80,85,90),annotate="value", 
+             main="Blaine O3 in 2014 \n Daily Mean of Hourly Values (ppb)",
+             key.header="24-hour Avg Ozone", key.footer="ppb")
+
+
+
+#Calculate 8-Hour Rolling Means at Blaine
+rolling8HR=rollingMean(blaine,pollutant="ozone",width=8,new.name="Rolling8HR",MNO3.thresh=75,align="left")
+rolling8HR$shortdate=as.Date(strftime(rolling8HR$date,format="%Y-%m-%d",tz="GMT"))
+dailymax8HR=aggregate(rolling8HR,by=list(rolling8HR$shortdate),FUN="max")
+
+#Trim data frame
+dailymax8HR=subset(dailymax8HR,select=c("shortdate","site","Rolling8HR"))
+names(dailymax8HR)=c("date","site","ozone")
+
+calendarPlot(dailymax8HR,pollutant="ozone",year=2014,month=4:10,
+             statistic="mean",breaks=c(0,50,60,65,70,75,80),
+             cols="heat",annotate="value",
+             main="Daily Maximum 8-hour Ozone at Blaine 2014",
+             key.header="Daily Max\n8-HR Ozone",
+             key.footer="ppb")
+
+ ```
