@@ -188,6 +188,9 @@ install.packages("openair")
 library(openair)
 ```
  
+A Minnesota example
+========================================================
+
  ```r
 ##Load Custom Functions
 round2 = function(x, n) {
